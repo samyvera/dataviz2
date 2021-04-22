@@ -11,21 +11,22 @@ const floorOffset = -100;
 let volHistory, amp;
 // Visual elements
 let visualElements = [];
-const yOrigin = -500;
+const yOrigin = -400;
 const zOffset = 500;
 // Player
 player = new Player(zOffset);
 // Buttons
-const buttons = [];
+let select;
+const selectOptions = [{ img: null, category: "default" }];
 
 function preload() {
 	// Load data tables
 	esc50Table = loadTable('../asset/esc50.csv', 'csv', 'header');
 	categoryTable = loadTable('../asset/Category.csv', 'csv', 'header');
 
-	// Load 20 random sound elements
+	// Load X random sound elements
 	soundFormats('wav');
-	for (let i = 0; i < 50; i++) {
+	for (let i = 0; i < 100; i++) {
 		const randomIndex = Math.floor(Math.random() * soundData.length);
 		soundElements.push({
 			index: randomIndex,
@@ -37,6 +38,13 @@ function preload() {
 	// Load textures
 	playerSprite = loadImage('../asset/player.png');
 	floorTexture = loadImage('../asset/floor.jpg');
+	
+	categories.forEach(category => {
+		selectOptions.push({
+			img: loadImage('../asset/PICTOS/' + category + '.png'),
+			category: category
+		});
+	});
 }
 
 function setup() {
@@ -46,7 +54,8 @@ function setup() {
 
 	// From the loaded tables attach a category to each sound element
 	soundElements.forEach(soundElement => {
-		soundElement.category = categoryTable.findRow(esc50Table.getRow(soundElement.index).obj.category, 'Type').obj.Category
+		soundElement.subCategory = esc50Table.getRow(soundElement.index).obj.category;
+		soundElement.category = categoryTable.findRow(soundElement.subCategory, 'Type').obj.Category;
 	});
 
 	// The default distance the camera is away from the origin (used for raycasting)
@@ -65,14 +74,20 @@ function setup() {
 
 	// Create buttons
 	
-	button = createButton('click me');
-	button.position(8, 16);
-	button.mousePressed(changeBG);
+	// button = createButton('click me');
+	// button.position(8, 16);
+	// button.mousePressed(changeBG);
+	select = createSelect();
+	select.position(8, 16);
+	selectOptions.forEach(({img, category}) => {
+		select.option(category);
+	});
+	select.changed(changeSelect);
 }
 
-function changeBG() {
-	let val = random(255);
-	background(val);
+function changeSelect() {
+	let value = select.value();
+	console.log(value);
 }
 
 const targetShadow = (pos, baseSize, color, offset = 0) => {
@@ -149,7 +164,10 @@ function draw() {
 
 	// Add random new visual elements
 	if (Math.random() > 0.98) {
-		const randomSound = soundElements[Math.floor(Math.random() * soundElements.length)];
+		console.log(soundElements.find(soundElement => soundElement.subCategory === select.value()))
+		const randomSound = soundElements.find(soundElement => soundElement.subCategory === select.value())
+			? soundElements.find(soundElement => soundElement.subCategory === select.value())
+			: soundElements[Math.floor(Math.random() * soundElements.length)];
 		visualElements.push(new VisualElement(
 			Math.round(Math.random() * 400 - 200),
 			yOrigin,
@@ -216,7 +234,7 @@ function draw() {
 		if (dist < elem.size && !elem.sound.isPlaying()) {
 			elem.sound.setVolume(map(dist, elem.size, 0, 0, 1))
 			elem.sound.play();
-			console.log(elem.category, map(dist, elem.size, 0, 0, 1))
+			// console.log(elem.category, map(dist, elem.size, 0, 0, 1))
 		}
 	});
 }
