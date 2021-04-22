@@ -1,3 +1,4 @@
+// Visual element class, used as a visual representation of sounds
 class VisualElement {
     size = 128 + Math.round(Math.random() * 128);
     offset = Math.round(Math.random() * 32);

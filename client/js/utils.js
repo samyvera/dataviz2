@@ -1,4 +1,4 @@
-// Fonction to convert colors from hsl to rbg
+// Fonction to convert colors from hsl to rbg from https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
 const hslToRgb = (h, s, l) => {
     let r, g, b;
     if(s === 0) r = g = b = l;

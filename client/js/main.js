@@ -1,5 +1,6 @@
 // Data tables
 let esc50Table, categoryTable;
+let categories;
 // Sound elements
 const soundElements = [];
 // Images
@@ -15,20 +16,24 @@ const yOrigin = -400;
 const zOffset = 500;
 // Player
 player = new Player(zOffset);
-// Buttons
+// Select
 let select;
-const selectOptions = ["default", ...categories];
+let selectOptions;
+// Slider
+let slider;
 
 function preload() {
 	// Load data tables then sounds & textures
 	esc50Table = loadTable('../asset/esc50.csv', 'csv', 'header', () => {
+		// 50 unique category values
+		categories = esc50Table.getColumn('category').filter((value, index, categoryArray) => categoryArray.indexOf(value) === index);
+		selectOptions = ["default", ...categories];
 		categoryTable = loadTable('../asset/Category.csv', 'csv', 'header', () => {
 			// Load X random sound elements
 			soundFormats('wav');
-			for (let i = 0; i < 200; i++) {
-				const randomIndex = Math.floor(Math.random() * soundData.length);
+			for (let i = 0; i < 400; i++) {
 				// From the loaded tables attach a category to each sound element
-				const tableObj = esc50Table.getRow(randomIndex).obj;
+				const tableObj = esc50Table.getRow(Math.floor(Math.random() * esc50Table.rows.length)).obj;
 				const subCategory = tableObj.category;
 				soundElements.push({
 					sound: loadSound('../asset/audio/' + tableObj.filename),
@@ -39,7 +44,6 @@ function preload() {
 			}
 		});
 	});
-
 
 	// Load other textures
 	playerSprite = loadImage('../asset/player.png');
@@ -65,26 +69,25 @@ function setup() {
 	ambientMaterial(255);
 	noStroke();
 
-	// Create buttons
-	
-	// button = createButton('click me');
-	// button.position(8, 16);
-	// button.mousePressed(changeBG);
+	// Create select
 	select = createSelect();
 	select.position(8, 16);
 	selectOptions.forEach(category => select.option(category));
-	// select.changed(changeSelect);
+
+	// Create slider
+	slider = createSlider(0, 100, 20);
+	slider.position(8, 48);
+	slider.style('width', '100px');
 }
 
-// function changeSelect() {
-// 	let value = select.value();
-// }
-
+// Visual wave representation with special textures for sound elements
 const targetShadow = (pos, baseSize, color, offset = 0, textureImg = null) => {
 	push();
 	noFill();
 	translate(pos);
 	rotateX((90 * PI) / 180);
+
+	// Display the sound category texture
 	if (textureImg) {
 		push();
 		translate(0,0,1);
@@ -92,12 +95,13 @@ const targetShadow = (pos, baseSize, color, offset = 0, textureImg = null) => {
 		plane(baseSize)
 		pop();
 	}
+
 	translate(0,0,4);
 	const cursorCircles = 4;
 	const cursorTotalFrame = 180;
+	// Display multiple waves with different sizes
 	for (let i = 0; i < cursorCircles; i++) {
 		const cursorFrame = (frameCount + offset + i * cursorTotalFrame / cursorCircles) % cursorTotalFrame;
-		// console.log(color)
 		stroke(`rgba(${color[0]}%, ${color[1]}%, ${color[2]}%, ${1 - cursorFrame / cursorTotalFrame})`);
 		ellipse(Math.round((Math.random() * 20 - 10) * amp.getLevel()), Math.round((Math.random() * 20 - 10) * amp.getLevel()), baseSize + cursorFrame / 4, baseSize + cursorFrame / 4);
 	}
@@ -105,6 +109,7 @@ const targetShadow = (pos, baseSize, color, offset = 0, textureImg = null) => {
 }
 
 function draw() {
+	// Get the navigator's sound volume
 	const currentVolume = amp.getLevel();
 	volHistory.push(currentVolume);
 
@@ -160,10 +165,9 @@ function draw() {
 	pop();
 
 
-	// Add random new visual elements
-	if (Math.random() > 0.98) {
+	// Add new random visual elements
+	if (Math.random() > 1 - slider.value() / 1000) {
 		const filter = soundElements.find(soundElement => soundElement.subCategory === select.value()) ? select.value() : null;
-		console.log(filter?filter:'random')
 		const filteredElements = filter ? soundElements.filter(soundElement => soundElement.subCategory === filter) : soundElements;
 		const randomSound = filteredElements[Math.floor(Math.random() * filteredElements.length)];
 		visualElements.push(new VisualElement(
@@ -176,8 +180,13 @@ function draw() {
 			randomSound.texture
 		));
 	}
+
+
+	// Filter used visual elements
 	visualElements = visualElements.filter(visualElement => visualElement.y < 0);
-	// Visual elements
+
+
+	// Display current visual elements
 	visualElements.forEach(visualElement => {
 		visualElement.y++;
 		targetShadow(createVector(visualElement.x, 0, visualElement.z), visualElement.size * (1 - map(visualElement.y, yOrigin, 0, 1, 0)), visualElement.color, visualElement.offset, visualElement.texture);
@@ -191,6 +200,7 @@ function draw() {
 		shininess(1);
 		scale(1 + currentVolume * 3);
 		const meshSize = 40;
+		// Display a shape depending the sound category
 		switch (visualElement.category) {
 			case 'Maison':
 				box(meshSize / 4, meshSize / 4, meshSize / 4);
@@ -232,9 +242,8 @@ function draw() {
 	visualElements.forEach(elem => {
 		const dist = distance(createVector(elem.x, player.y, elem.z), player);
 		if (dist < elem.size && !elem.sound.isPlaying()) {
-			elem.sound.setVolume(map(dist, elem.size, 0, 0, 1))
+			elem.sound.setVolume(map(dist, elem.size, 0, 0, 1));
 			elem.sound.play();
-			// console.log(elem.category, map(dist, elem.size, 0, 0, 1))
 		}
 	});
 }
