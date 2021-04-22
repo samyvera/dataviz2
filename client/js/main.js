@@ -17,46 +17,39 @@ const zOffset = 500;
 player = new Player(zOffset);
 // Buttons
 let select;
-const selectOptions = [{ img: null, category: "default" }];
+const selectOptions = ["default", ...categories];
 
 function preload() {
-	// Load data tables
-	esc50Table = loadTable('../asset/esc50.csv', 'csv', 'header');
-	categoryTable = loadTable('../asset/Category.csv', 'csv', 'header');
-
-	// Load X random sound elements
-	soundFormats('wav');
-	for (let i = 0; i < 100; i++) {
-		const randomIndex = Math.floor(Math.random() * soundData.length);
-		soundElements.push({
-			index: randomIndex,
-			sound: loadSound('../asset/audio/' + soundData[randomIndex]),
-			category: null
-		});
-	}
-
-	// Load textures
-	playerSprite = loadImage('../asset/player.png');
-	floorTexture = loadImage('../asset/floor.jpg');
-	
-	categories.forEach(category => {
-		selectOptions.push({
-			img: loadImage('../asset/PICTOS/' + category + '.png'),
-			category: category
+	// Load data tables then sounds & textures
+	esc50Table = loadTable('../asset/esc50.csv', 'csv', 'header', () => {
+		categoryTable = loadTable('../asset/Category.csv', 'csv', 'header', () => {
+			// Load X random sound elements
+			soundFormats('wav');
+			for (let i = 0; i < 200; i++) {
+				const randomIndex = Math.floor(Math.random() * soundData.length);
+				// From the loaded tables attach a category to each sound element
+				const tableObj = esc50Table.getRow(randomIndex).obj;
+				const subCategory = tableObj.category;
+				soundElements.push({
+					sound: loadSound('../asset/audio/' + tableObj.filename),
+					subCategory: subCategory,
+					category: categoryTable.findRow(subCategory, 'Type').obj.Category,
+					texture: loadImage('../asset/PICTOS/' + subCategory + '.png'),
+				});
+			}
 		});
 	});
+
+
+	// Load other textures
+	playerSprite = loadImage('../asset/player.png');
+	floorTexture = loadImage('../asset/floor.jpg');
 }
 
 function setup() {
 	// Create canvas with 3D context
 	createCanvas(innerWidth, innerHeight, WEBGL);
 	frameRate(30);
-
-	// From the loaded tables attach a category to each sound element
-	soundElements.forEach(soundElement => {
-		soundElement.subCategory = esc50Table.getRow(soundElement.index).obj.category;
-		soundElement.category = categoryTable.findRow(soundElement.subCategory, 'Type').obj.Category;
-	});
 
 	// The default distance the camera is away from the origin (used for raycasting)
 	eyeZ = height / 2 / tan((30 * PI) / 180);
@@ -79,22 +72,27 @@ function setup() {
 	// button.mousePressed(changeBG);
 	select = createSelect();
 	select.position(8, 16);
-	selectOptions.forEach(({img, category}) => {
-		select.option(category);
-	});
-	select.changed(changeSelect);
+	selectOptions.forEach(category => select.option(category));
+	// select.changed(changeSelect);
 }
 
-function changeSelect() {
-	let value = select.value();
-	console.log(value);
-}
+// function changeSelect() {
+// 	let value = select.value();
+// }
 
-const targetShadow = (pos, baseSize, color, offset = 0) => {
+const targetShadow = (pos, baseSize, color, offset = 0, textureImg = null) => {
 	push();
 	noFill();
 	translate(pos);
 	rotateX((90 * PI) / 180);
+	if (textureImg) {
+		push();
+		translate(0,0,1);
+		texture(textureImg);
+		plane(baseSize)
+		pop();
+	}
+	translate(0,0,4);
 	const cursorCircles = 4;
 	const cursorTotalFrame = 180;
 	for (let i = 0; i < cursorCircles; i++) {
@@ -164,23 +162,25 @@ function draw() {
 
 	// Add random new visual elements
 	if (Math.random() > 0.98) {
-		console.log(soundElements.find(soundElement => soundElement.subCategory === select.value()))
-		const randomSound = soundElements.find(soundElement => soundElement.subCategory === select.value())
-			? soundElements.find(soundElement => soundElement.subCategory === select.value())
-			: soundElements[Math.floor(Math.random() * soundElements.length)];
+		const filter = soundElements.find(soundElement => soundElement.subCategory === select.value()) ? select.value() : null;
+		console.log(filter?filter:'random')
+		const filteredElements = filter ? soundElements.filter(soundElement => soundElement.subCategory === filter) : soundElements;
+		const randomSound = filteredElements[Math.floor(Math.random() * filteredElements.length)];
 		visualElements.push(new VisualElement(
 			Math.round(Math.random() * 400 - 200),
 			yOrigin,
 			Math.round(Math.random() * 400 - 200) + 500,
 			randomSound.sound,
-			randomSound.category
+			randomSound.category,
+			randomSound.subCategory,
+			randomSound.texture
 		));
 	}
 	visualElements = visualElements.filter(visualElement => visualElement.y < 0);
 	// Visual elements
 	visualElements.forEach(visualElement => {
 		visualElement.y++;
-		targetShadow(createVector(visualElement.x, 0, visualElement.z), visualElement.size * (1 - map(visualElement.y, yOrigin, 0, 1, 0)), visualElement.color, visualElement.offset);
+		targetShadow(createVector(visualElement.x, 0, visualElement.z), visualElement.size * (1 - map(visualElement.y, yOrigin, 0, 1, 0)), visualElement.color, visualElement.offset, visualElement.texture);
 		push();
 		translate(visualElement.x, visualElement.y + 90, visualElement.z);
 		// // rotateZ((frameCount % 30 < 15 ? 1 : -1) * Math.PI * 0.0625);
